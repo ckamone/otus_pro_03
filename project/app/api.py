@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from optparse import OptionParser
 
 import scoring
+import store
 
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
@@ -282,7 +283,7 @@ def online_score(request, request_obj, ctx, store):
     if request_obj.is_admin:
         score = int(ADMIN_SALT)
     else:
-        score = scoring.get_score(
+        score = scoring.get_score(store,
             request['body']['arguments'].get('phone', None),
             request['body']['arguments'].get('email', None),
             birthday=request['body']['arguments'].get('birthday', None),
@@ -291,6 +292,8 @@ def online_score(request, request_obj, ctx, store):
             last_name=request['body']['arguments'].get('last_name', None),
         )
     ctx['has'] = request['body']['arguments'].keys()
+    # r = redis.StrictRedis()
+    # store = [i.decode() for i in r.keys(pattern='*')]
     return {'score': float(score)}, OK
 
 
@@ -313,7 +316,7 @@ def clients_interests(request, request_obj, ctx, store):
     # checks are passed
     res = {}
     for identificator in request_obj.arguments['client_ids']:
-        res[f'client_id{identificator}'] = scoring.get_interests()
+        res[f'client_id{identificator}'] = scoring.get_interests(store, identificator)
     ctx['nclients'] = len(request_obj.arguments['client_ids'])
     return res, OK
 
@@ -321,6 +324,11 @@ def clients_interests(request, request_obj, ctx, store):
 def method_handler(request, ctx, store):
     """обработчик, который получает запрос, выдает респонс и код"""
     # test if empty
+    print(80*'8')
+    print("REQUEST",request)
+    print("CONTEXT", ctx)
+    print("STORE", store)
+
     if request['body'] == {}:
         return ERRORS[INVALID_REQUEST], INVALID_REQUEST
 
@@ -363,7 +371,7 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
     router = {
         "method": method_handler
     }
-    store = None
+    store = store.Storage()
 
     def get_request_id(self, headers):
         """Getting the id of the request"""
